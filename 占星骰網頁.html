@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>水晶星軌 | 占星骰占卜</title>
+    <style>
+        :root {
+            --bg: #fffafa; /* 極淡粉白背景 */
+            /* 水晶粉紅色設定 */
+            --crystal-pink: rgba(255, 192, 203, 0.6); 
+            --crystal-glow: rgba(255, 255, 255, 0.8);
+            --accent: #d48a94;
+            --text: #6b5b5b;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: "PingFang TC", sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+
+        .container { text-align: center; width: 100%; max-width: 600px; }
+
+        /* 3D 場景 */
+        .dice-stage {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            perspective: 1200px;
+            margin-bottom: 60px;
+        }
+
+        .dice-wrapper { width: 100px; height: 100px; position: relative; }
+
+        .dice {
+            width: 100%; height: 100%;
+            position: absolute;
+            transform-style: preserve-3d;
+            transition: transform 2.5s cubic-bezier(0.1, 0.9, 0.2, 1);
+        }
+
+        /* 核心：水晶質感 CSS */
+        .face {
+            position: absolute;
+            width: 100px; height: 100px;
+            /* 漸層營造光澤感 */
+            background: linear-gradient(135deg, var(--crystal-glow) 0%, var(--crystal-pink) 100%);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.2rem;
+            color: #fff;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+            /* 毛玻璃效果 */
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+            /* 內發光模擬水晶折射 */
+            box-shadow: inset 0 0 15px rgba(255, 255, 255, 0.6), 0 5px 15px rgba(212, 138, 148, 0.2);
+            clip-path: polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%);
+        }
+
+        /* 3D 方位 */
+        .f-front  { transform: rotateY(0deg) translateZ(50px); }
+        .f-back   { transform: rotateY(180deg) translateZ(50px); }
+        .f-right  { transform: rotateY(90deg) translateZ(50px); }
+        .f-left   { transform: rotateY(-90deg) translateZ(50px); }
+        .f-top    { transform: rotateX(90deg) translateZ(50px); }
+        .f-bottom { transform: rotateX(-90deg) translateZ(50px); }
+
+        .rolling {
+            animation: hyperRoll 0.4s infinite linear;
+        }
+
+        @keyframes hyperRoll {
+            0% { transform: rotateX(0) rotateY(0) rotateZ(0); }
+            100% { transform: rotateX(360deg) rotateY(360deg) rotateZ(360deg); }
+        }
+
+        button {
+            background: #f8d7da;
+            color: #856404;
+            border: 1px solid #f5c6cb;
+            padding: 12px 40px;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: 0.3s;
+            font-size: 1rem;
+            letter-spacing: 2px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+        }
+
+        button:hover {
+            background: var(--accent);
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        .result-panel {
+            margin-top: 40px;
+            padding: 25px;
+            border-radius: 15px;
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(10px);
+            opacity: 0;
+            transform: translateY(20px);
+            transition: 0.8s;
+        }
+
+        .result-panel.show { opacity: 1; transform: translateY(0); }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="dice-stage">
+        <div class="dice-wrapper"><div id="p-dice" class="dice"></div></div>
+        <div class="dice-wrapper"><div id="z-dice" class="dice"></div></div>
+        <div class="dice-wrapper"><div id="h-dice" class="dice"></div></div>
+    </div>
+
+    <button onclick="startRoll()">觀測占星骰能量</button>
+
+    <div id="panel" class="result-panel">
+        <div id="summary" style="font-weight: bold; margin-bottom: 8px; color: var(--accent); font-size: 1.2rem;"></div>
+        <div id="detail" style="font-size: 0.95rem; color: #7a6a6a;"></div>
+    </div>
+</div>
+
+<script>
+    const data = {
+        planets: [
+            {s:"☉", n:"太陽", d:"核心目標"}, {s:"☽", n:"月亮", d:"情緒安全"}, {s:"☿", n:"水星", d:"溝通邏輯"},
+            {s:"♀", n:"金星", d:"愛與價值"}, {s:"♂", n:"火星", d:"行動衝勁"}, {s:"♃", n:"木星", d:"擴張幸運"},
+            {s:"♄", n:"土星", d:"壓力責任"}, {s:"⛢", n:"天王星", d:"突發變革"}, {s:"♆", n:"海王星", d:"靈感模糊"},
+            {s:"♇", n:"冥王星", d:"轉化重生"}, {s:"☊", n:"北交點", d:"未來方向"}, {s:"☋", n:"南交點", d:"過去習性"}
+        ],
+        zodiacs: [
+            {s:"♈︎", n:"牡羊"}, {s:"♉︎", n:"金牛"}, {s:"♊︎", n:"雙子"}, {s:"♋︎", n:"巨蟹"},
+            {s:"♌︎", n:"獅子"}, {s:"♍︎", n:"處女"}, {s:"♎︎", n:"天秤"}, {s:"♏︎", n:"天蠍"},
+            {s:"♐︎", n:"射手"}, {s:"♑︎", n:"摩羯"}, {s:"♒︎", n:"水瓶"}, {s:"♓︎", n:"雙魚"}
+        ],
+        houses: Array.from({length:12}, (_,i)=>({s:i+1, n:`${i+1}宮`}))
+    };
+
+    const diceIds = ['p-dice', 'z-dice', 'h-dice'];
+    const faceClasses = ['f-front', 'f-back', 'f-right', 'f-left', 'f-top', 'f-bottom'];
+
+    function init() {
+        diceIds.forEach(id => {
+            const el = document.getElementById(id);
+            faceClasses.forEach(f => {
+                const div = document.createElement('div');
+                div.className = `face ${f}`;
+                div.innerText = "?";
+                el.appendChild(div);
+            });
+        });
+    }
+
+    function startRoll() {
+        document.getElementById('panel').classList.remove('show');
+        diceIds.forEach(id => document.getElementById(id).classList.add('rolling'));
+
+        setTimeout(() => {
+            const resP = data.planets[Math.floor(Math.random()*12)];
+            const resZ = data.zodiacs[Math.floor(Math.random()*12)];
+            const resH = data.houses[Math.floor(Math.random()*12)];
+
+            // 寫入結果
+            updateFace('p-dice', resP.s);
+            updateFace('z-dice', resZ.s);
+            updateFace('h-dice', resH.s);
+
+            diceIds.forEach(id => {
+                const el = document.getElementById(id);
+                el.classList.remove('rolling');
+                // 停止在正面
+                el.style.transform = `rotateX(720deg) rotateY(720deg)`;
+            });
+
+            document.getElementById('summary').innerText = `${resP.n} • ${resZ.n}座 • ${resH.n}`;
+            document.getElementById('detail').innerText = `骰子能量顯示：你的「${resP.d}」正與${resZ.n}座的頻率共振，並聚焦於生活中的第${resH.n}。`;
+            document.getElementById('panel').classList.add('show');
+        }, 1200);
+    }
+
+    function updateFace(id, symbol) {
+        document.querySelector(`#${id} .f-front`).innerText = symbol;
+    }
+
+    init();
+</script>
+
+</body>
+</html>
